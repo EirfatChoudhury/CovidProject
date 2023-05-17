@@ -1,79 +1,30 @@
--- Looking at total cases vs total deaths, and calculating the number of deaths as a percentage of the total number of cases at the time
-SELECT location, date, CAST(total_cases AS numeric) as total_cases, CAST(total_deaths AS numeric) as total_deaths, (CAST(total_deaths AS numeric) / CAST(total_cases AS numeric)) * 100 as 'Deaths as a Percentage of Total Cases'
-FROM CovidProject.. ['COVID DEATHS$']
-ORDER BY 1, 2
+-- Finding the total number of cases, total number of deaths, and the total number of deaths as a percentage of the total number of cases
+-- This query is carried out where continents are not null
 
--- Looking at total cases vs population, and calculating the population infected as a percentage of the entire population
-SELECT location, date, CAST(total_cases AS numeric) as total_cases, CAST(population AS numeric) as population, (CAST(total_cases AS numeric) / CAST(population AS numeric)) * 100 as 'Infected as a Percentage of Population'
-FROM CovidProject.. ['COVID DEATHS$']
-ORDER BY 1, 2
+Select SUM(new_cases) as total_cases, SUM(cast(new_deaths as int)) as total_deaths, SUM(cast(new_deaths as int))/SUM(New_Cases)*100 as DeathPercentage
+From CovidProject.. ['COVID DEATHS$']
+where continent is not null
 
--- Looking at total deaths vs population, and calculating the number deaths as a percentage of the entire population
-SELECT location, date, CAST(total_deaths AS numeric) as total_deaths, CAST(population AS numeric) as population, (CAST(total_deaths AS numeric) / CAST(population AS numeric)) * 100 as 'Deaths as a Percentage of Population'
-FROM CovidProject.. ['COVID DEATHS$']
-ORDER BY 1, 2
+-- Finding the total number of deaths in each location
+-- This query does not include locations like European union as this is a part of the already included location 'Europe' and would result in duplicate copies. Same with World and International as they will include the deaths from all the available locations combined
 
--- Looking at countries with Highest population infected
-SELECT location, MAX(CAST(total_cases AS numeric)) as 'Highest Number of Cases', MAX((CAST(total_cases AS numeric) / CAST(population AS numeric)) * 100) as 'Highest Number Infected as a Percentage of Population'
-FROM CovidProject.. ['COVID DEATHS$']
-GROUP BY location
-ORDER BY 'Highest Number Infected as a Percentage of Population' DESC
+Select location, SUM(cast(new_deaths as int)) as TotalDeathCount
+From CovidProject.. ['COVID DEATHS$']
+Where continent is null 
+and location not in ('World', 'European Union', 'International')
+Group by location
+order by TotalDeathCount desc
 
--- Looking at countries with Highest population dead due after being infected with Covid
-SELECT location, MAX(CAST(total_deaths AS numeric)) as 'Highest Number of Deaths', MAX((CAST(total_deaths AS numeric) / CAST(population AS numeric)) * 100) as 'Highest Number Dead as a Percentage of Population'
-FROM CovidProject.. ['COVID DEATHS$']
-GROUP BY location
-ORDER BY 'Highest Number Dead as a Percentage of Population' DESC
+-- Finding the total number of cases in each location, the population in each location, and the total number of cases in each location as a percentage of the location's population
 
--- Looking at percentage of deaths across the world
-SELECT SUM(CAST(new_cases as numeric)) as total_cases, SUM(CAST(new_deaths AS numeric)) as total_deaths, (SUM(CAST(new_deaths AS numeric)) / SUM(CAST(new_cases AS numeric)) * 100) as 'Total Deaths as a Perecentage of Total Cases'
-FROM CovidProject.. ['COVID DEATHS$']
+Select Location, Population, MAX(total_cases) as HighestInfectionCount,  Max((total_cases/population))*100 as PercentPopulationInfected
+From CovidProject.. ['COVID DEATHS$']
+Group by Location, Population
+order by PercentPopulationInfected desc
 
--- Looking at total population vs vaccinations
-SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, 
-SUM(CONVERT(numeric, vac.new_vaccinations)) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) as Total_population_vaccinated
-From CovidProject.. ['COVID DEATHS$'] dea
-JOIN CovidProject.. ['COVID VACCINATIONS$'] vac
-	ON dea.location = vac.location
-	AND dea.date = vac.date
-where dea.continent IS NOT NULL
-order by 2,3
+-- Finding the total number of cases in each location per date, the population in each location per date, and the total number of cases in each location as a percentage of the location's population per date
 
-
--- Creating a temp table to store the query above as a variable
-DROP TABLE IF EXISTS #PercentPopulationVaccinated
-CREATE TABLE #PercentPopulationVaccinated
-(
-Continent nvarchar(255),
-Location nvarchar(255),
-Date datetime,
-Population numeric,
-New_vaccinations numeric,
-Total_population_vaccinated numeric
-)
-
-INSERT INTO #PercentPopulationVaccinated
-SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, 
-SUM(CONVERT(numeric, vac.new_vaccinations)) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) as Total_population_vaccinated
-From CovidProject.. ['COVID DEATHS$'] dea
-JOIN CovidProject.. ['COVID VACCINATIONS$'] vac
-	ON dea.location = vac.location
-	AND dea.date = vac.date
-
--- Calculating population vaccinated in each location as a percentage of the location's entire population
-SELECT *, (Total_population_vaccinated/Population)*100
-FROM #PercentPopulationVaccinated
-
--- Creating a view for visualisation
-USE CovidProject
-GO
-CREATE VIEW PercentPopulationVaccinated AS
-SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, 
-SUM(CONVERT(numeric, vac.new_vaccinations)) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) as Total_population_vaccinated
-From CovidProject.. ['COVID DEATHS$'] dea
-JOIN CovidProject.. ['COVID VACCINATIONS$'] vac
-	ON dea.location = vac.location
-	AND dea.date = vac.date
-wHERE dea.continent IS NOT NULL
-
-DROP VIEW IF EXISTS PercentPopulationVaccinated
+Select Location, Population, date, MAX(total_cases) as HighestInfectionCount,  Max((total_cases/population))*100 as PercentPopulationInfected
+From CovidProject.. ['COVID DEATHS$']
+Group by Location, Population, date
+order by PercentPopulationInfected desc
